@@ -1,5 +1,3 @@
-# What's it
-
 # Design targets
 1. Easy to write, no state matrix.
 2. Friendly error handling.
@@ -8,13 +6,15 @@
 
 # Basic ideas.
 1. Every statemachine start with state void.
-2. All state related data should bind to @data of the state machine .
+2. All state related data should bind to `@data` of the state machine .
 3. Statemachine can turn to panic or recover from it and restore to a correct state.
 4. All async action between state should have a integrity check.
-5. Statemachine can be reset by clean the @data and set the state to "void", without worry about unreturned callbacks.
+5. Statemachine can be reset by clean the `@data` and set the state to "void", without worry about unreturned callbacks.
 6. Statemachine use a wait/give strategy to interact with other state machine to prevent unwanted state change.
 
 # example
+
+Example can be found at ./example folder. Run it to see a debug output.
 
 ```coffee-script
 # States = require("node-state")

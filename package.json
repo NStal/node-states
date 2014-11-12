@@ -21,6 +21,6 @@
     },
     "repository":{
         "type":"git",
-        "url":"https://github.com/NStal/node-message-center"
+        "url":"git@github.com:NStal/node-states.git"
     }
 }
