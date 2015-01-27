@@ -4,7 +4,7 @@
 3. Robust against unexpected async callback or state jump.
 4. Easy debug.
 
-# Basic ideas.
+# Basic ideas
 1. Every statemachine start with state void.
 2. All state related data should bind to `@data` of the state machine .
 3. Statemachine can turn to panic or recover from it and restore to a correct state.
@@ -12,12 +12,18 @@
 5. Statemachine can be reset by clean the `@data` and set the state to "void", without worry about unreturned callbacks.
 6. Statemachine use a wait/give strategy to interact with other state machine to prevent unwanted state change.
 
-# example
+# Install
+
+```bash
+npm install logicoma
+```
+
+# Example
 
 Example can be found at ./example folder. Run it to see a debug output.
 
 ```coffee-script
-# States = require("node-state")
+# States = require("logicoma")
 States = require("../")
 # You can use error-doc to create beautiful error declares and checks.
 Errors = require("error-doc").create()

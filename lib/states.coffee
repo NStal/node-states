@@ -1,6 +1,34 @@
 # States
-# 
-EventEmitter = (require "events").EventEmitter
+#
+# How it works
+# 1. states should start from "void", there should be no atVoid handler.
+# 2. by calling @error current state and error will be saved
+#    and we will turn the state into "panic".
+# 3. at "panic" states, state machine won't turn unless you call @recover()
+#    or setState to "void" manually.
+#    Latter one won't reset @panicError and @panicState.
+# 4. you should do the error recovering in atPanic handler, or just emit "panic"
+#    event to the parent.
+# 5. all the local data should be store on @data, so we can easily recover
+#    from the previous shutdown.
+# 6. should be rebust against invalid states jump
+# 7. we have a default atPanit state handler to just emit a "panic" event
+#    so the parent of this state machine should come to rescue
+#    but in case we know how to recover from the current state, we may over
+#    write atPanic handler to suppress the panic event
+# Note: Set state with same stateName of the current state again will do nothing.
+#
+#
+# States using a unique Sole to prevent multiple running context
+# at async action.
+#
+# atFetching:(sole)->
+#    asyncFetchin ()=>
+#        # check soles to prevent multiple runing context
+#        if not @checkSole sole
+#            return
+#
+EventEmitter = (require "eventex").EventEmitter
 Errors = (require "error-doc").create()
     .define("AlreadyDestroyed")
     .define("InvalidState")
@@ -11,8 +39,9 @@ class States extends EventEmitter
         @state = "void"
         @lastException = null
         @states = {}
+        @rescues = []
         @data = {}
-        @_listenBys = []
+#        @_listenBys = []
         if @_isDebugging
             @debug()
         super()
@@ -28,7 +57,7 @@ class States extends EventEmitter
         @on = ()->
         @once = ()->
         @removeAllListeners()
-        
+
     extract:(fields...)->
         data = {}
         for item in fields
@@ -38,6 +67,10 @@ class States extends EventEmitter
         for prop of data
             if data.hasOwnProperty prop
                 @data[prop] = data[prop]
+    at:(state,callback)->
+        handlerName = "at"+state[0].toUpperCase()+state.substring(1)
+        this[handlerName] = callback
+        return this
     setState:(state)->
         if not state
             throw new Errors.InvalidState "Can't set invalid states #{state}"
@@ -58,15 +91,30 @@ class States extends EventEmitter
     error:(error)->
         @panicError = error
         @panicState = @state
-        @setState "panic"
-    recover:()->
+        for rescue in @rescues
+            if rescue.state is @panicState and @panicError instanceof rescue.error
+                if @_debugRescueHandler
+                    @_debugRescueHandler()
+                @recover()
+                rescue.callback(error)
+                break
+        # does rescue handles all error
+        if @panicError
+            @setState "panic"
+    recover:(recoverState)->
         # For safety, recover just do a respawn.
         # So every async call should be ignored,
         # only if they forgot to check sole.
         error = @panicError
         state = @panicState
         @respawn()
+        if recoverState
+            @setState recoverState
         return {error,state}
+    rescue:(state,error,callback = ()->)->
+        if not callback
+            throw new Error "rescue should provide callbacks"
+        @rescues.push {state,error,callback}
     give:(name,items...)->
         if @_waitingGiveName is name
             handler = @_waitingGiveHandler
@@ -86,7 +134,7 @@ class States extends EventEmitter
         else
             @_waitingGiveName = null
             @_waitingGiveHandler = null
-    
+
     isWaitingFor:(name)->
         if not name and @_waitingGiveName
             return true
@@ -103,7 +151,7 @@ class States extends EventEmitter
         @emit "wait",name
         @emit "wait/#{name}"
     atPanic:()->
-        
+
         if @_isDebugging and @_debugPanicHandler
             @_debugPanicHandler()
         @emit "panic",@panicError,@panicState
@@ -114,6 +162,8 @@ class States extends EventEmitter
         return @_sole
     checkSole:(sole)->
         return @_sole is sole
+    stale:(sole)->
+        return @_sole isnt sole
     respawn:()->
         @_sole = @_sole or 0
         @_sole += 1
@@ -123,32 +173,32 @@ class States extends EventEmitter
         @panicState = null
         @setState "void"
         @clear()
-    listenBy:(who,event,callback)->
-        owner = null
-        for item in @_listenBys
-            if item.who is who
-                owner = item
-                break
-        if not owner
-            owner = {who:who,cases:[]}
-            @_listenBys.push owner
-        owner.cases.push {event:event,callback:callback}
-        @on event,callback
-    stopListenBy:(who,event)->
-        owner = null
-        for item in @_listenBys
-            if item.who is who
-                owner = item
-                break
-        if not owner
-            return
-        for item,index in owner.cases
-            if item and (item.event is event or not event)
-                @removeListener item.event,item.callback
-            owner.cases[index] = null
-        owner.cases = owner.cases.filter (item)->item
-        if owner.cases.length is 0
-            @_listenBys = @_listenBys.filter (item)->item isnt owner
+#    listenBy:(who,event,callback)->
+#        owner = null
+#        for item in @_listenBys
+#            if item.who is who
+#                owner = item
+#                break
+#        if not owner
+#            owner = {who:who,cases:[]}
+#            @_listenBys.push owner
+#        owner.cases.push {event:event,callback:callback}
+#        @on event,callback
+#    stopListenBy:(who,event)->
+#        owner = null
+#        for item in @_listenBys
+#            if item.who is who
+#                owner = item
+#                break
+#        if not owner
+#            return
+#        for item,index in owner.cases
+#            if item and (item.event is event or not event)
+#                @removeListener item.event,item.callback
+#            owner.cases[index] = null
+#        owner.cases = owner.cases.filter (item)->item
+#        if owner.cases.length is 0
+#            @_listenBys = @_listenBys.filter (item)->item isnt owner
     debug:(option = {})->
         close = option.close
         @_debugName = option.name or @constructor and @constructor.name or "Anonymouse"
@@ -166,6 +216,8 @@ class States extends EventEmitter
             log "#{@_debugName or ''} state: #{@state}"
         @_debugWaitHandler ?= ()=>
             log "#{@_debugName or ''} waiting: #{@_waitingGiveName}"
+        @_debugRescueHandler ?= ()=>
+            log "#{@_debugName or ''} rescue: #{@panicState} => #{@panicError}"
         @_debugPanicHandler ?= ()=>
             log "#{@_debugName or ''} panic: #{JSON.stringify @panicError}"
         @_debugRecieveHandler ?= (name,data...)=>
@@ -180,5 +232,4 @@ class States extends EventEmitter
             @_clearHandler = null
             if _handler
                 _handler()
-                
 module.exports = States

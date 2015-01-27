@@ -1,26 +1,27 @@
 {
-    "name": "node-states",
-    "version": "0.0.1",
-    "description": "A friendly state machine with good async support and error handling",
-    "main": "index.js",
-    "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "keywords": [
-        "states",
-        "statemachine",
-        "error",
-        "panic",
-        "recover"
-    ],
-    "author": "NStal",
-    "license": "ISC",
-    "dependencies": {
-        "coffee-script": "^1.8.0",
-        "error-doc": "0.0.3"
-    },
-    "repository":{
-        "type":"git",
-        "url":"git@github.com:NStal/node-states.git"
-    }
+  "name": "logicoma",
+  "version": "0.0.5",
+  "description": "A human FSM(friendly state machine) with good async support and error handling",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "states",
+    "statemachine",
+    "error",
+    "panic",
+    "recover"
+  ],
+  "author": "NStal",
+  "license": "ISC",
+  "dependencies": {
+    "coffee-script": "^1.8.0",
+    "error-doc": "latest",
+    "eventex": "latest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:NStal/node-states.git"
+  }
 }
