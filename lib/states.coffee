@@ -29,10 +29,12 @@
 #            return
 #
 EventEmitter = (require "eventex").EventEmitter
+
 Errors = (require "error-doc").create()
     .define("AlreadyDestroyed")
     .define("InvalidState")
     .generate()
+
 class States extends EventEmitter
     @Errors = Errors
     constructor:()->
@@ -130,7 +132,8 @@ class States extends EventEmitter
                 @_waitingGiveName = null
                 @_waitingGiveHandler = null
             else
-                throw new Error "not waiting for #{name}"
+                return
+#                throw new Error "not waiting for #{name}"
         else
             @_waitingGiveName = null
             @_waitingGiveHandler = null
@@ -173,32 +176,6 @@ class States extends EventEmitter
         @panicState = null
         @setState "void"
         @clear()
-#    listenBy:(who,event,callback)->
-#        owner = null
-#        for item in @_listenBys
-#            if item.who is who
-#                owner = item
-#                break
-#        if not owner
-#            owner = {who:who,cases:[]}
-#            @_listenBys.push owner
-#        owner.cases.push {event:event,callback:callback}
-#        @on event,callback
-#    stopListenBy:(who,event)->
-#        owner = null
-#        for item in @_listenBys
-#            if item.who is who
-#                owner = item
-#                break
-#        if not owner
-#            return
-#        for item,index in owner.cases
-#            if item and (item.event is event or not event)
-#                @removeListener item.event,item.callback
-#            owner.cases[index] = null
-#        owner.cases = owner.cases.filter (item)->item
-#        if owner.cases.length is 0
-#            @_listenBys = @_listenBys.filter (item)->item isnt owner
     debug:(option = {})->
         close = option.close
         @_debugName = option.name or @constructor and @constructor.name or "Anonymouse"
@@ -213,15 +190,15 @@ class States extends EventEmitter
         else
             @_isDebugging = true
         @_debugStateHandler ?= ()=>
-            log "#{@_debugName or ''} state: #{@state}"
+            log "#{@_debugName or ''} state:",@state
         @_debugWaitHandler ?= ()=>
-            log "#{@_debugName or ''} waiting: #{@_waitingGiveName}"
+            log "#{@_debugName or ''} waiting:",@_waitingGiveName
         @_debugRescueHandler ?= ()=>
-            log "#{@_debugName or ''} rescue: #{@panicState} => #{@panicError}"
+            log "#{@_debugName or ''} rescue:",@panicState,"=>",@panicError,
         @_debugPanicHandler ?= ()=>
-            log "#{@_debugName or ''} panic: #{JSON.stringify @panicError}"
+            log "#{@_debugName or ''} panic:",@panicError
         @_debugRecieveHandler ?= (name,data...)=>
-            log "#{@_debugName or ''} recieve： #{name} => #{data.join(" ")}"
+            log "#{@_debugName or ''} recieve:",name,"=>",data...
     clear:(handler)->
         if handler
             if @_clearHandler
