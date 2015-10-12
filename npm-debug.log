@@ -1,0 +1,116 @@
+0 info it worked if it ends with ok
+1 verbose cli [ '/usr/bin/node', '/usr/bin/npm', 'publish' ]
+2 info using npm@1.4.28
+3 info using node@v0.10.36
+4 verbose node symlink /usr/bin/node
+5 verbose publish [ '.' ]
+6 verbose cache add [ '.', null ]
+7 verbose cache add name=undefined spec="." args=[".",null]
+8 verbose parsed url { protocol: null,
+8 verbose parsed url   slashes: null,
+8 verbose parsed url   auth: null,
+8 verbose parsed url   host: null,
+8 verbose parsed url   port: null,
+8 verbose parsed url   hostname: null,
+8 verbose parsed url   hash: null,
+8 verbose parsed url   search: null,
+8 verbose parsed url   query: null,
+8 verbose parsed url   pathname: '.',
+8 verbose parsed url   path: '.',
+8 verbose parsed url   href: '.' }
+9 silly lockFile 3a52ce78- .
+10 verbose lock . /home/wuminghan/.npm/3a52ce78-.lock
+11 verbose tar pack [ '/home/wuminghan/.npm/logicoma/0.1.1/package.tgz', '.' ]
+12 verbose tarball /home/wuminghan/.npm/logicoma/0.1.1/package.tgz
+13 verbose folder .
+14 info prepublish logicoma@0.1.1
+15 silly lockFile 1f1177db-tar tar://.
+16 verbose lock tar://. /home/wuminghan/.npm/1f1177db-tar.lock
+17 silly lockFile 00a8004d-n-npm-logicoma-0-1-1-package-tgz tar:///home/wuminghan/.npm/logicoma/0.1.1/package.tgz
+18 verbose lock tar:///home/wuminghan/.npm/logicoma/0.1.1/package.tgz /home/wuminghan/.npm/00a8004d-n-npm-logicoma-0-1-1-package-tgz.lock
+19 silly lockFile 1f1177db-tar tar://.
+20 silly lockFile 1f1177db-tar tar://.
+21 silly lockFile 00a8004d-n-npm-logicoma-0-1-1-package-tgz tar:///home/wuminghan/.npm/logicoma/0.1.1/package.tgz
+22 silly lockFile 00a8004d-n-npm-logicoma-0-1-1-package-tgz tar:///home/wuminghan/.npm/logicoma/0.1.1/package.tgz
+23 silly lockFile 12b948ec-nghan-npm-logicoma-0-1-1-package /home/wuminghan/.npm/logicoma/0.1.1/package
+24 verbose lock /home/wuminghan/.npm/logicoma/0.1.1/package /home/wuminghan/.npm/12b948ec-nghan-npm-logicoma-0-1-1-package.lock
+25 silly lockFile 12b948ec-nghan-npm-logicoma-0-1-1-package /home/wuminghan/.npm/logicoma/0.1.1/package
+26 silly lockFile 12b948ec-nghan-npm-logicoma-0-1-1-package /home/wuminghan/.npm/logicoma/0.1.1/package
+27 silly lockFile 3a52ce78- .
+28 silly lockFile 3a52ce78- .
+29 silly publish { name: 'logicoma',
+29 silly publish   version: '0.1.1',
+29 silly publish   description: 'A human FSM(friendly state machine) with good async support and error handling',
+29 silly publish   main: 'index.js',
+29 silly publish   scripts: { test: 'echo "Error: no test specified" && exit 1' },
+29 silly publish   keywords: [ 'states', 'statemachine', 'error', 'panic', 'recover' ],
+29 silly publish   author: { name: 'NStal' },
+29 silly publish   license: 'ISC',
+29 silly publish   dependencies:
+29 silly publish    { 'coffee-script': '^1.8.0',
+29 silly publish      'error-doc': 'latest',
+29 silly publish      eventex: 'latest' },
+29 silly publish   repository: { type: 'git', url: 'git@github.com:NStal/node-states.git' },
+29 silly publish   readme: '# Design targets\n1. Easy to write, no state matrix.\n2. Friendly error handling.\n3. Robust against unexpected async callback or state jump.\n4. Easy debug.\n\n# Basic ideas\n1. Every statemachine start with state void.\n2. All state related data should bind to `@data` of the state machine .\n3. Statemachine can turn to panic or recover from it and restore to a correct state.\n4. All async action between state should have a integrity check.\n5. Statemachine can be reset by clean the `@data` and set the state to "void", without worry about unreturned callbacks.\n6. Statemachine use a wait/give strategy to interact with other state machine to prevent unwanted state change.\n\n# Install\n\n```bash\nnpm install logicoma\n```\n\n# Example\n\nExample can be found at ./example folder. Run it to see a debug output.\n\n```coffee-script\n# States = require("logicoma")\nStates = require("../")\n# You can use error-doc to create beautiful error declares and checks.\nErrors = require("error-doc").create()\n    .define("CommunicationFailure")\n    .define("BarginFailure")\n    .define("ProgrammerError")\n    .generate()\n# You DON\'T have to define a `Action` when using node-state.\n# I just write them here for easier understanding.\n\n\nclass BuyCarProcedure extends States\n    # How to buy a car\n    # 1. goto shop\n    # 2. bargin with shop manager (again and again)\n    # 3. pay\n    constructor:()->\n        super()\n        # `@give("startSignal")` should be called\n        # to start the statemachine. If we are not\n        # wait for `"startSignal"`, giving that one will\n        # do nothing.\n        @waitFor "startSignal",()=>\n            # State will be changed\n            # @atGotoShop will be called\n            @setState "gotoShop"\n    atGotoShop:(sole)->\n        @waitFor "shopName",(name)=>\n            @data.shopName = name\n            @walkToShop name,(err)=>\n                # Always do a integrity check for async action.\n                # `sole` is given as state method parameters.\n                if not @checkSole sole\n                    return\n                # go panic on error\n                if err\n                    @error err\n                    return\n                @setState "thinkOfAStartPrice"\n    atThinkOfAStartPrice:()->\n        @waitFor "startPrice",(price)=>\n            @data.myPrice = price\n            @setState "bargin"\n    atBargin:(sole)->\n        if not @data.myPrice\n            @setState "thinkOfAStartPrice"\n            return\n        @bargin @data.myPrice,(err,result)=>\n            if not @checkSole sole\n                return\n            if err\n                @error err\n                return\n            if not result\n                @data.myPrice += 100\n                @setState "bargin"\n            else\n                @setState "pay"\n    atPay:(sole)->\n        @waitFor "money",(money)=>\n            @pay money,(err)=>\n                if not @checkSole sole\n                    return\n                if err\n                    @error err\n                    return\n                @setState "paid"\n    atPaid:()->\n        @emit "paid"\n    # Actions behaves just like a normal function.\n    # They don\'t and shouldn\'t change state machine state, and\n    # should better not change `@data`.\n    walkToShop:(name,callback)->\n        console.log "I walk to #{name} to buy a car"\n        setTimeout callback,10\n    bargin:(price,callback)->\n        accept = 1000\n        err = null\n        console.log "I bid at price #{price}"\n        if Math.random() > 0.85\n            err = new Errors.CommunicationFailure("the manager say something I don\'t understand")\n        else if Math.random() > 0.8\n            err = new Errors.BarginFailure("the manager don\'t want to bargin with me any more")\n        callback err,price > accept\n    pay:(money,callback)->\n        console.log "#{money} is given away."\n        callback null\n\n\n# All error handlings\np = new BuyCarProcedure()\n# you can see all the state jump and actions\np.debug({name:"BuyCar"})\n\n\np.on "wait/shopName",()=>\n    p.give("shopName","the car shop near my house")\np.on "wait/startPrice",()=>\n    p.give("startPrice",500)\np.on "wait/money",()=>\n    p.give("money",p.data.myPrice + "$")\n\n# Suppose we are in a parent statemachine who\n# is responsible for the error handling.\n# If the error is simple enough and don\'t not require any third party\n# information to handle it, we can also consider that sort of\n# error a valid state.\n# But here we handle them outside the statemachine to expalin a standard\n# panic recover strategy here.\n\nparentStateMachineData = {}\nd = parentStateMachineData\np.on "panic",(err,state)=>\n    if err instanceof Errors.CommunicationFailure and state is "bargin"\n        # it\'s OK just bargin again!\n        p.recover()\n        p.setState "bargin"\n    else if err instanceof Errors.BarginFailure and state is "bargin"\n        d.failCount ?= 0\n        d.failCount++\n        if d.failCount < 3\n            # we just try again\n            p.recover()\n            p.setState "bargin"\n        else\n            # a error that is impossible to handle\n            console.log "I can\'t bargin with this asshole any more!"\n            process.exit(0)\n    else\n        throw new Errors.ProgrammerError("I don\'t expect this kind of situation",{via:err,state:state})\np.on "paid",()->\n    console.log "paid!"\n# finally start the stae machine\np.give("startSignal")\n```\n',
+29 silly publish   readmeFilename: 'README.md',
+29 silly publish   gitHead: '09013567d5c44035a3658219b6e4414bc16e83c3',
+29 silly publish   bugs: { url: 'https://github.com/NStal/node-states/issues' },
+29 silly publish   homepage: 'https://github.com/NStal/node-states',
+29 silly publish   _id: 'logicoma@0.1.1',
+29 silly publish   _shasum: '27315b41cfbfe828cc558e787665c8c947bed5d3',
+29 silly publish   _from: '.' }
+30 verbose request where is /logicoma
+31 verbose request registry https://registry.npmjs.org/
+32 verbose request id fb7a5c43a5d6e9fb
+33 verbose url raw /logicoma
+34 verbose url resolving [ 'https://registry.npmjs.org/', './logicoma' ]
+35 verbose url resolved https://registry.npmjs.org/logicoma
+36 verbose request where is https://registry.npmjs.org/logicoma
+37 info trying registry request attempt 1 at 17:36:27
+38 http PUT https://registry.npmjs.org/logicoma
+39 http 400 https://registry.npmjs.org/logicoma
+40 verbose bad json <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+40 verbose bad json <html><head>
+40 verbose bad json <title>400 Bad Request</title>
+40 verbose bad json </head><body>
+40 verbose bad json <h1>Bad Request</h1>
+40 verbose bad json <p>Your browser sent a request that this server could not understand.<br />
+40 verbose bad json </p>
+40 verbose bad json </body></html>
+41 error registry error parsing json
+42 verbose headers { date: 'Fri, 03 Apr 2015 09:36:24 GMT',
+42 verbose headers   server: 'Apache',
+42 verbose headers   'content-length': '226',
+42 verbose headers   connection: 'close',
+42 verbose headers   'content-type': 'text/html; charset=iso-8859-1' }
+43 error publish Failed PUT 400
+44 error SyntaxError: Unexpected token <
+44 error <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+44 error <html><head>
+44 error <title>400 Bad Request</title>
+44 error </head><body>
+44 error <h1>Bad Request</h1>
+44 error <p>Your browser sent a request that this server could not understand.<br />
+44 error </p>
+44 error </body></html>
+44 error
+44 error     at Object.parse (native)
+44 error     at RegClient.<anonymous> (/usr/lib/node_modules/npm/node_modules/npm-registry-client/lib/request.js:274:23)
+44 error     at Request._callback (/usr/lib/node_modules/npm/node_modules/npm-registry-client/lib/request.js:246:65)
+44 error     at Request.self.callback (/usr/lib/node_modules/npm/node_modules/request/request.js:236:22)
+44 error     at Request.emit (events.js:98:17)
+44 error     at Request.<anonymous> (/usr/lib/node_modules/npm/node_modules/request/request.js:1142:14)
+44 error     at Request.emit (events.js:117:20)
+44 error     at IncomingMessage.<anonymous> (/usr/lib/node_modules/npm/node_modules/request/request.js:1096:12)
+44 error     at IncomingMessage.emit (events.js:117:20)
+44 error     at _stream_readable.js:944:16
+45 error If you need help, you may report this *entire* log,
+45 error including the npm and node versions, at:
+45 error     <http://github.com/npm/npm/issues>
+46 error System Linux 3.13.0-46-generic
+47 error command "/usr/bin/node" "/usr/bin/npm" "publish"
+48 error cwd /home/wuminghan/workspace/node-states
+49 error node -v v0.10.36
+50 error npm -v 1.4.28
+51 error type unexpected_token
+52 verbose exit [ 1, true ]

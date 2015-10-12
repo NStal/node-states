@@ -34,11 +34,11 @@ Errors = (require "error-doc").create()
     .define("AlreadyDestroyed")
     .define("InvalidState")
     .generate()
-
 class States extends EventEmitter
     @Errors = Errors
     constructor:()->
         @state = "void"
+        @_sole = 1
         @lastException = null
         @states = {}
         @rescues = []
@@ -80,16 +80,23 @@ class States extends EventEmitter
             return
         if @isDestroyed
             return
+        if @data.feeds
+            for prop,item of @data.feeds
+                item.feedListener = null
+        @_sole += 1
+        @stopWaiting()
         @state = state
-        if @_waitingGiveName
-            throw new Errors.InvalidState "Can't change to state #{state} while waiting for #{@_waitingGiveName}"
+#        if @_waitingGiveName
+#            throw new Errors.InvalidState "Can't change to state #{state} while waiting for #{@_waitingGiveName}"
         if @_isDebugging and @_debugStateHandler
             @_debugStateHandler()
         @emit "state",state
         @emit "state/#{state}"
         stateHandler = "at"+state[0].toUpperCase()+state.substring(1)
         if this[stateHandler]
-            this[stateHandler](@_sole)
+            sole = @_sole
+            this[stateHandler] ()=>
+                sole isnt @_sole
     error:(error)->
         @panicError = error
         @panicState = @state
@@ -132,8 +139,7 @@ class States extends EventEmitter
                 @_waitingGiveName = null
                 @_waitingGiveHandler = null
             else
-                return
-#                throw new Error "not waiting for #{name}"
+                throw new Error "not waiting for #{name}"
         else
             @_waitingGiveName = null
             @_waitingGiveHandler = null
@@ -144,6 +150,27 @@ class States extends EventEmitter
         if name is @_waitingGiveName
             return true
         return false
+    feed:(name,item)->
+        @data.feeds ?= {}
+        @data.feeds[name] ?= []
+        @data.feeds[name].push(item)
+        if listener = @data.feeds[name].feedListener
+
+            @data.feeds[name].feedListener = null
+            listener()
+    consume:(name)->
+        if @data.feeds?[name]?
+            return @data.feeds[name].shift()
+        else
+            return null
+    consumeWhenAvailable:(name,callback)->
+        @data.feeds ?= {}
+        @data.feeds[name] ?= []
+        if @data.feeds[name].length > 0
+            callback @consume(name)
+        else
+            @data.feeds[name].feedListener = ()=>
+                callback @consume(name)
     waitFor:(name,handler)->
         if @_waitingGiveName
             throw new Error "already waiting for #{@_waitingGiveName} and can't wait for #{name} now"
@@ -166,9 +193,11 @@ class States extends EventEmitter
     checkSole:(sole)->
         return @_sole is sole
     stale:(sole)->
+        if typeof sole is "function"
+            return sole()
         return @_sole isnt sole
     respawn:()->
-        @_sole = @_sole or 0
+        @_sole = @_sole or 1
         @_sole += 1
         @_waitingGiveName = null
         @_waitingGiveHandler = null
@@ -176,6 +205,32 @@ class States extends EventEmitter
         @panicState = null
         @setState "void"
         @clear()
+#    listenBy:(who,event,callback)->
+#        owner = null
+#        for item in @_listenBys
+#            if item.who is who
+#                owner = item
+#                break
+#        if not owner
+#            owner = {who:who,cases:[]}
+#            @_listenBys.push owner
+#        owner.cases.push {event:event,callback:callback}
+#        @on event,callback
+#    stopListenBy:(who,event)->
+#        owner = null
+#        for item in @_listenBys
+#            if item.who is who
+#                owner = item
+#                break
+#        if not owner
+#            return
+#        for item,index in owner.cases
+#            if item and (item.event is event or not event)
+#                @removeListener item.event,item.callback
+#            owner.cases[index] = null
+#        owner.cases = owner.cases.filter (item)->item
+#        if owner.cases.length is 0
+#            @_listenBys = @_listenBys.filter (item)->item isnt owner
     debug:(option = {})->
         close = option.close
         @_debugName = option.name or @constructor and @constructor.name or "Anonymouse"
@@ -190,15 +245,15 @@ class States extends EventEmitter
         else
             @_isDebugging = true
         @_debugStateHandler ?= ()=>
-            log "#{@_debugName or ''} state:",@state
+            log "#{@_debugName or ''} state: #{@state}"
         @_debugWaitHandler ?= ()=>
-            log "#{@_debugName or ''} waiting:",@_waitingGiveName
+            log "#{@_debugName or ''} waiting: #{@_waitingGiveName}"
         @_debugRescueHandler ?= ()=>
-            log "#{@_debugName or ''} rescue:",@panicState,"=>",@panicError,
+            log "#{@_debugName or ''} rescue: #{@panicState} => #{@panicError}"
         @_debugPanicHandler ?= ()=>
-            log "#{@_debugName or ''} panic:",@panicError
+            log "#{@_debugName or ''} panic: #{JSON.stringify @panicError}"
         @_debugRecieveHandler ?= (name,data...)=>
-            log "#{@_debugName or ''} recieve:",name,"=>",data...
+            log "#{@_debugName or ''} recieve： #{name} => #{data.join(" ")}"
     clear:(handler)->
         if handler
             if @_clearHandler
@@ -209,4 +264,6 @@ class States extends EventEmitter
             @_clearHandler = null
             if _handler
                 _handler()
+
+
 module.exports = States
