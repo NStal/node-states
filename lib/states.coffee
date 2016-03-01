@@ -100,9 +100,22 @@ class States extends EventEmitter
         @_clearTick @_stateTimer
         if @forceAsync
             @_stateTimer = @_nextTick ()=>
-                @_setState state
+                if @_isDebugging
+                    @_setState state
+                else
+                    @_try ()=>
+                        @_setState state
         else
-            @_setState state
+            if @_isDebugging
+                @_setState state
+            else
+                @_try ()=>
+                    @_setState state
+    _try:(fn)=>
+        try
+            fn()
+        catch e
+            @error e
     _setState:(state)->
         @_clearTick @_stateTimer
         if not state
@@ -129,6 +142,11 @@ class States extends EventEmitter
             sole = @_sole
             this[stateHandler] ()=>
                 sole isnt @_sole
+        else if state not in ["void"]
+            if console.warn
+                console.warn "state handler #{stateHandler} not provided"
+            else
+                console.error "state handler #{stateHandler} not provided"
     error:(error)->
         @panicError = error
         @panicState = @state
