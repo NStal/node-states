@@ -151,7 +151,7 @@ class States extends EventEmitter
         @panicError = error
         @panicState = @state
         for rescue in @rescues
-            if rescue.state is @panicState and @panicError instanceof rescue.error
+            if rescue.state is @panicState and (@panicError instanceof rescue.error or not rescue.error)
                 if @_debugRescueHandler
                     @_debugRescueHandler()
                 @recover()
@@ -207,6 +207,12 @@ class States extends EventEmitter
         if listener = @data.feeds[name].feedListener
             @data.feeds[name].feedListener = null
             listener()
+    consumeAll:(name)->
+        if @data.feeds?[name]?
+            length = @data.feeds[name].length or 0
+            @data.feeds[name] = []
+            return length
+        return 0
     consume:(name)->
         if @data.feeds?[name]?
             return @data.feeds[name].shift()
