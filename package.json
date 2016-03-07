@@ -1,6 +1,6 @@
 {
   "name": "logicoma",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "A human FSM(friendly state machine) with good async support and error handling",
   "main": "index.js",
   "scripts": {
